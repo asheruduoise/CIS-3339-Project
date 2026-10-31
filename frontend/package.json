@@ -1,62 +1,54 @@
 {
   "name": "frontend",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
-    "start": "vite",
     "dev": "vite",
+    "start": "vite",
     "build": "vite build",
-    "serve": "vite preview"
+    "preview": "vite preview --port 4173",
+    "serve": "vite preview --port 4173",
+    "lint": "eslint --ext .js,.vue src"
   },
   "dependencies": {
-    "@vitejs/plugin-vue": "^3.2.0",
-    "@vuelidate/core": "^2.0.0",
-    "@vuelidate/validators": "^2.0.0",
-    "axios": "^1.3.4",
-    "chart.js": "^4.4.0",
+    "@vuelidate/core": "^2.0.3",
+    "@vuelidate/validators": "^2.0.4",
+    "axios": "^1.7.7",
+    "chart.js": "^4.4.4",
     "jwt-decode": "^3.1.2",
-    "pinia": "^2.1.6",
-    "vite": "^3.1.8",
-    "vue": "^3.2.41",
-    "vue-multiselect": "^3.0.0-alpha.2",
-    "vue-router": "^4.1.6",
-    "vue-toastification": "^2.0.0-rc.5",
-    "vuelidate": "^0.7.7"
+    "pinia": "^2.2.4",
+    "vue": "^3.5.12",
+    "vue-multiselect": "^3.1.0",
+    "vue-router": "^4.4.5",
+    "vue-toastification": "^2.0.0-rc.5"
   },
   "devDependencies": {
-    "@tailwindcss/forms": "^0.5.3",
-    "@vue/compiler-sfc": "^3.2.41",
-    "autoprefixer": "^10.4.12",
-    "eslint": "^8.26.0",
-    "eslint-config-prettier": "^8.5.0",
-    "eslint-plugin-prettier": "^4.2.1",
-    "eslint-plugin-vue": "^9.6.0",
-    "postcss": "^8.4.18",
-    "tailwindcss": "^3.2.6"
+    "@tailwindcss/forms": "^0.5.9",
+    "@vitejs/plugin-vue": "^5.1.4",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
+    "eslint-plugin-vue": "^9.29.0",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "vite": "^5.4.10"
   },
   "eslintConfig": {
     "root": true,
     "extends": [
-      "plugin:vue/vue3-essential",
-      "prettier"
+      "eslint:recommended",
+      "plugin:vue/vue3-essential"
     ],
     "env": {
+      "browser": true,
       "es2022": true
     },
-    "rules": {
-      "prettier/prettier": [
-        "error",
-        {
-          "singleQuote": true,
-          "trailingComma": "none"
-        }
-      ],
-      "arrow-body-style": "off",
-      "prefer-arrow-callback": "off"
+    "parserOptions": {
+      "ecmaVersion": "latest",
+      "sourceType": "module"
     },
-    "plugins": [
-      "prettier"
-    ]
+    "rules": {
+      "vue/multi-word-component-names": "off"
+    }
   },
   "browserslist": [
     "> 1%",
