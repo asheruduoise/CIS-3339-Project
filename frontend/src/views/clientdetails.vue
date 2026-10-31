@@ -1,432 +1,369 @@
-<!-- This view allows a user to view/update a specific client's information. -->
+<!-- Client details: view/update/delete a client and manage event registrations.
+     Viewers see a read-only page (S1 frontend side). Register/deregister show
+     the B1 messages ("Already registered" / "Not registered"). -->
 <template>
   <main>
-    <!--Header-->
-    <h1 class="font-bold text-4xl text-red-700 tracking-widest text-center mt-10">
-      Client Details
-    </h1>
-    <div class="px-10 py-20">
-      <!-- grid container -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
-        <h2 class="text-2xl font-bold">Personal Details</h2>
-        <!-- First Name input field -->
-        <div class="flex flex-col">
-          <label class="block">
-            <span class="text-gray-700">First Name</span>
-            <span style="color: #ff0000">*</span>
-            <input type="text"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              placeholder v-model="client.firstName" />
-          </label>
-          <!-- Validation error messages -->
-          <span v-if="v$.client.firstName.$error" class="text-red-500">
-            First Name is required
-          </span>
-        </div>
+    <h1 class="mt-10 text-center text-4xl font-bold tracking-widest text-red-700">Client Details</h1>
 
-        <!-- Middle name input field -->
-        <div class="flex flex-col">
-          <label class="block">
-            <span class="text-gray-700">Middle Name</span>
-            <input type="text"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              placeholder v-model="client.middleName" />
-          </label>
-        </div>
+    <div class="px-4 py-10 md:px-10">
+      <AsyncState
+        :loading="loading"
+        :error="error"
+        loading-text="Loading client…"
+        error-title="Couldn't load this client"
+        @retry="load"
+      >
+        <p v-if="!user.isEditor" class="mb-6 rounded bg-yellow-50 p-3 text-yellow-900">
+          You have view-only access. Only editors can change clients or event registrations.
+        </p>
 
-        <!-- Last Name input field -->
-        <div class="flex flex-col">
-          <label class="block">
-            <span class="text-gray-700">Last Name</span>
-            <span style="color: #ff0000">*</span>
-            <input type="text"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              placeholder v-model="client.lastName" />
-          </label>
-          <!-- Validation error messages -->
-          <span v-if="v$.client.lastName.$error" class="text-red-500">
-            Last Name is required
-          </span>
-        </div>
-        <div></div>
-        <!-- Email input field -->
-        <div class="flex flex-col">
-          <label class="block">
-            <span class="text-gray-700">Email</span>
-            <input type="email"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              v-model="client.email" />
-          </label>
-          <!-- Validation error messages -->
-          <span v-if="v$.client.email.$error" class="text-red-500">
-            Valid Email is required
-          </span>
-        </div>
-        <!-- Phone number input field -->
-        <div class="flex flex-col">
-          <label class="block">
-            <span class="text-gray-700">Phone Number</span>
-            <span style="color: #ff0000">*</span>
-            <input type="text"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              pattern="^[0-9]{3}[0-9]{3}[0-9]{4}$" v-model="client.phoneNumber.primary" />
-          </label>
-          <!-- Validation error messages -->
-          <span v-if="v$.client.phoneNumber.primary.$error" class="text-red-500">
-            <span v-if="v$.client.phoneNumber.primary.required.$invalid">Phone Number is required</span>
-            <span
-              v-else-if="!v$.client.phoneNumber.primary.required.$invalid && v$.client.phoneNumber.primary.numeric.$invalid">
-              Phone Number must contain only digits
-            </span>
-            <span
-              v-else-if="!v$.client.phoneNumber.primary.required.$invalid && !v$.client.phoneNumber.primary.numeric.$invalid && (v$.client.phoneNumber.primary.minLength.$invalid || v$.client.phoneNumber.primary.maxLength.$invalid)">
-              Phone Number must be exactly 10 digits
-            </span>
-          </span>
-        </div>
-        <!-- Alternative phone number input field -->
-        <div class="flex flex-col">
-          <label class="block">
-            <span class="text-gray-700">Alternative Phone Number</span>
-            <input type="text"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              pattern="[0-9]{3}[0-9]{3}[0-9]{4}" v-model="client.phoneNumber.alternate" />
-          </label>
-        </div>
-      </div>
+        <form novalidate @submit.prevent="submitUpdate">
+          <fieldset :disabled="!user.isEditor">
+            <legend class="sr-only">Client information</legend>
+            <div class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 md:grid-cols-4">
+              <h2 class="text-2xl font-bold">Personal Details</h2>
 
-      <!-- grid container -->
-      <div class="mt-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
-        <h2 class="text-2xl font-bold">Address Details</h2>
-        <!-- Address 1 input field -->
-        <div class="flex flex-col">
-          <label class="block">
-            <span class="text-gray-700">Address Line 1</span>
-            <input type="text"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              v-model="client.address.line1" />
-          </label>
-        </div>
-        <!-- Address 2 input field -->
-        <div class="flex flex-col">
-          <label class="block">
-            <span class="text-gray-700">Address Line 2</span>
-            <input type="text"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              v-model="client.address.line2" />
-          </label>
-        </div>
-        <!-- City input field -->
-        <div class="flex flex-col">
-          <label class="block">
-            <span class="text-gray-700">City</span>
-            <span style="color: #ff0000">*</span>
-            <input type="text"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              v-model="client.address.city" />
-          </label>
-          <!-- Validation error messages -->
-          <span v-if="v$.client.address.city.$error" class="text-red-500">
-            City is required
-          </span>
-        </div>
-        <div></div>
-        <!-- County input field -->
-        <div class="flex flex-col">
-          <label class="block">
-            <span class="text-gray-700">County</span>
-            <input type="text"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              v-model="client.address.county" />
-          </label>
-        </div>
-        <!-- Zip code input field -->
-        <div class="flex flex-col">
-          <label class="block">
-            <span class="text-gray-700">Zip Code</span>
-            <input type="text"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              v-model="client.address.zip" />
-          </label>
-        </div>
-        <div></div>
-      </div>
+              <div class="flex flex-col">
+                <label class="block">
+                  <span class="text-gray-700">First Name</span>
+                  <span class="text-red-600" aria-hidden="true">*</span>
+                  <input v-model.trim="client.firstName" type="text" :class="inputClass" required />
+                </label>
+                <span v-if="v$.client.firstName.$error" class="text-red-600">First Name is required</span>
+              </div>
 
-      <!-- grid container -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
-        <div class="flex justify-between mt-10 mr-20"></div>
-        <!--Update Client submit button-->
-        <div class="flex justify-between mt-10 mr-20">
-          <button @click="submitUpdateClient" type="submit" class="bg-green-700 disabled:opacity-50 text-white rounded"
-            :disabled="user.role === 'viewer'">
-            Update Client
-          </button>
-        </div>
-        <!--Delete Client button-->
-        <div class="flex justify-between mt-10 mr-20">
-          <button @click="submitDeleteClient" type="submit" class="bg-red-700 disabled:opacity-50 text-white rounded"
-            :disabled="user.role === 'viewer'">
-            Delete Client
-          </button>
-        </div>
-        <!--Go back button-->
-        <div class="flex justify-between mt-10 mr-20">
-          <button type="reset" class="border border-red-700 bg-white text-red-700 rounded" @click=this.$router.back()>
-            Go back
-          </button>
-        </div>
-      </div>
+              <div class="flex flex-col">
+                <label class="block">
+                  <span class="text-gray-700">Middle Name</span>
+                  <input v-model.trim="client.middleName" type="text" :class="inputClass" />
+                </label>
+              </div>
+
+              <div class="flex flex-col">
+                <label class="block">
+                  <span class="text-gray-700">Last Name</span>
+                  <span class="text-red-600" aria-hidden="true">*</span>
+                  <input v-model.trim="client.lastName" type="text" :class="inputClass" required />
+                </label>
+                <span v-if="v$.client.lastName.$error" class="text-red-600">Last Name is required</span>
+              </div>
+
+              <div></div>
+
+              <div class="flex flex-col">
+                <label class="block">
+                  <span class="text-gray-700">Email</span>
+                  <input v-model.trim="client.email" type="email" :class="inputClass" />
+                </label>
+                <span v-if="v$.client.email.$error" class="text-red-600">Valid Email is required</span>
+              </div>
+
+              <div class="flex flex-col">
+                <label class="block">
+                  <span class="text-gray-700">Phone Number</span>
+                  <span class="text-red-600" aria-hidden="true">*</span>
+                  <input v-model.trim="client.phoneNumber.primary" type="tel" inputmode="numeric" :class="inputClass" required />
+                </label>
+                <span v-if="v$.client.phoneNumber.primary.$error" class="text-red-600">{{ phoneError }}</span>
+              </div>
+
+              <div class="flex flex-col">
+                <label class="block">
+                  <span class="text-gray-700">Alternative Phone Number</span>
+                  <input v-model.trim="client.phoneNumber.alternate" type="tel" inputmode="numeric" :class="inputClass" />
+                </label>
+              </div>
+            </div>
+
+            <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 md:grid-cols-4">
+              <h2 class="text-2xl font-bold">Address Details</h2>
+              <div v-for="field in addressFields" :key="field.key" class="flex flex-col">
+                <label class="block">
+                  <span class="text-gray-700">{{ field.label }}</span>
+                  <span v-if="field.required" class="text-red-600" aria-hidden="true">*</span>
+                  <input v-model.trim="client.address[field.key]" type="text" :class="inputClass" :required="field.required" />
+                </label>
+                <span v-if="field.key === 'city' && v$.client.address.city.$error" class="text-red-600">City is required</span>
+              </div>
+            </div>
+          </fieldset>
+
+          <div class="mt-10 flex flex-wrap gap-4">
+            <template v-if="user.isEditor">
+              <button type="submit" class="rounded bg-green-700 text-white disabled:opacity-50" :disabled="saving">
+                {{ saving ? 'Saving…' : 'Update Client' }}
+              </button>
+              <button type="button" class="rounded bg-red-700 text-white" @click="askDelete">Delete Client</button>
+            </template>
+            <button type="button" class="rounded border border-red-700 bg-white text-red-700" @click="router.back()">
+              Go back
+            </button>
+          </div>
+        </form>
+
+        <hr class="my-10" />
+
+        <section class="grid grid-cols-1 gap-x-6 gap-y-6 md:grid-cols-4">
+          <div>
+            <h2 class="text-2xl font-bold">Events for Client</h2>
+            <p class="italic">Click a row (or press Enter) to view event details</p>
+          </div>
+
+          <div class="md:col-span-2">
+            <DataTable
+              :columns="eventColumns"
+              :rows="clientEvents"
+              clickable
+              caption="Events this client is registered for"
+              empty-text="This client isn't registered for any events."
+              @row-click="(e) => router.push({ name: 'eventdetails', params: { id: e._id } })"
+            >
+              <template #cell-actions="{ row }">
+                <button
+                  v-if="user.isEditor"
+                  type="button"
+                  class="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700 hover:bg-gray-100"
+                  :aria-label="`Remove client from ${row.name}`"
+                  @click.stop="removeFromEvent(row)"
+                >
+                  Remove
+                </button>
+              </template>
+            </DataTable>
+          </div>
+
+          <div v-if="user.isEditor" class="flex flex-col">
+            <label for="event-picker" class="mb-1 font-bold">Add client to events</label>
+            <VueMultiselect
+              id="event-picker"
+              v-model="eventsSelected"
+              :options="eventsNotRegistered"
+              :custom-label="nameWithDate"
+              :multiple="true"
+              :close-on-select="true"
+              placeholder="Select events"
+              track-by="_id"
+            />
+            <button
+              type="button"
+              class="mt-5 rounded bg-red-700 text-white disabled:opacity-50"
+              :disabled="!eventsSelected.length || registering"
+              @click="addToEvents"
+            >
+              {{ registering ? 'Adding…' : 'Add Client to Selected Events' }}
+            </button>
+          </div>
+        </section>
+      </AsyncState>
     </div>
 
-    <hr class="mt-10 mb-10" />
-
-    <!-- Client Event Information -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10 mr-10">
-      <div class="ml-10">
-        <h2 class="text-2xl font-bold">Events for Client</h2>
-        <h3 class="italic">Click table row to view event details</h3>
-      </div>
-      <div class="flex flex-col col-span-2">
-        <table class="min-w-full shadow-md rounded">
-          <thead class="bg-gray-50 text-xl">
-            <tr>
-              <th class="p-4 text-left">Event Name</th>
-              <th class="p-4 text-left">Date</th>
-              <th class="p-4"></th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-300">
-            <tr @click="$router.push({ name: 'eventdetails', params: { id: event._id } })" 
-            v-for="event in clientEvents" :key="event._id" class="cursor-pointer" 
-              :class="{ 'hoverRow': hoverId === event._id }" @mouseenter="hoverId = event._id" @mouseleave="hoverId = null">
-              <td class="p-2 text-left">{{ event.name }}</td>
-              <td class="p-2 text-left">{{ formatDate(event.date) }}</td>
-              <td class="p-2 text-right">
-                <span class="remove-btn-wrapper">
-                  <span class="remove-btn text-gray-400 cursor-pointer"
-                    @click.stop="removeClientFromEvent(client._id, event._id)" v-if="hoverId === event._id">X</span>
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="flex flex-col">
-        <!--MultiSelect to add client to events-->
-        <VueMultiselect
-          class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 cursor-pointer"
-          v-model="eventsSelected" :options="eventsFiltered" :custom-label="nameWithDate" :multiple="true"
-          :close-on-select="true" placeholder="Select Events to be added" label="date" track-by="name" />
-        <div class="flex justify-between">
-          <!--button to add client to events-->
-          <button @click="addClientToEvent" type="submit" class="mt-5 bg-red-700 disabled:opacity-50 text-white rounded"
-            :disabled="eventsSelected.length === 0 || user.role === 'viewer'">
-            Add Client to Selected Events
-          </button>
-        </div>
-      </div>
-
-    </div>
+    <ConfirmModal
+      :open="confirmOpen"
+      title="Delete this client?"
+      :message="`${client.firstName} ${client.lastName} will be permanently deleted.`"
+      confirm-text="Delete Client"
+      :busy="deleting"
+      @confirm="submitDelete"
+      @cancel="confirmOpen = false"
+    />
   </main>
 </template>
 
-<script>
+<script setup>
+// ---- Composition API migration (F1): what changed from the Options API ----
+// - data() { client, clientEvents, eventsFiltered, eventsSelected, hoverId } -> reactive(client) + ref() lists
+// - setup() { v$, user } + validations() -> useVuelidate(rules, { client }) and the store at top level
+// - async mounted() + this.$route.params.id -> useApi() + watch(clientId, load, { immediate: true })
+// - methods.formatDate (copy of 4) -> shared utils/formatDate.js
+// - addClientToEvent: unawaited Promise.all().then() -> await Promise.allSettled() with per-event messages
+// - components: { VueMultiselect } option -> direct import; events <table> -> DataTable with a Remove slot
+// ---------------------------------------------------------------------------
+import { computed, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import useVuelidate from '@vuelidate/core'
 import { required, email, numeric, minLength, maxLength } from '@vuelidate/validators'
 import VueMultiselect from 'vue-multiselect'
-import { useLoggedInUserStore } from "../store/loggedInUser";
-import { getClientById, getClientEvents, getNonClientEvents, registerAttendee, deregisterAttendee, updateClient, deleteClientbyId } from '../api/api'
+import 'vue-multiselect/dist/vue-multiselect.css'
 import { useToast } from 'vue-toastification'
+import AsyncState from '../components/AsyncState.vue'
+import DataTable from '../components/DataTable.vue'
+import ConfirmModal from '../components/ConfirmModal.vue'
+import { useApi } from '../composables/useApi'
+import { useLoggedInUserStore } from '../store/loggedInUser'
+import {
+  getClientById,
+  getClientEvents,
+  getNonClientEvents,
+  registerAttendee,
+  deregisterAttendee,
+  updateClient,
+  deleteClientbyId
+} from '../api/api'
+import { formatDate } from '../utils/formatDate'
 
-//Notifications
+const route = useRoute()
+const router = useRouter()
 const toast = useToast()
+const user = useLoggedInUserStore()
 
-export default {
-  // register components
-  components: {
-    VueMultiselect,
-  },
-  setup() {
-    // register Vuelidate and loggedIn store
-    const v$ = useVuelidate();
-    const user = useLoggedInUserStore();
-    return { v$, user };
-  },
-  data() {
-    return {
-      // events that the client is not registered in - to be shown in the multiselect
-      eventsFiltered: [],
-      // events that user selects from multiselect list
-      eventsSelected: [],
-      //variable to hold the events that the selected client is associated with
-      clientEvents: [],
-      //variable to hold client information  
-      client: {
-        firstName: null,
-        middleName: null,
-        lastName: null,
-        email: null,
-        phoneNumber: {
-          primary: null,
-          alternate: null
-        },
-        address: {
-          line1: null,
-          line2: null,
-          city: null,
-          county: null,
-          zip: null
-        }
-      },
-      // variable stores the ID of the row that the mouse is currently hovering over (to highlight the row red)
-      hoverId: null
-    }
-  },
-  validations() {
-    // validations
-    return {
-      client: {
-        firstName: { required },
-        lastName: { required },
-        email: { required, email },
-        phoneNumber: {
-          primary: {
-            required,
-            numeric,
-            minLength: minLength(10),
-            maxLength: maxLength(10),
-          },
-        },
-        address: {
-          city: { required },
-        },
-      },
-    };
-  },
-  async mounted() {
-    // when component is mounted, data is loaded
-    // get client information, events the client is registered in, and events that client is not registered in
-    try {
-      const [clientResponse, clientEventsResponse, nonClientEventsResponse] = await Promise.all([
-        getClientById(this.$route.params.id),
-        getClientEvents(this.$route.params.id),
-        getNonClientEvents(this.$route.params.id),
-      ]);
+const inputClass =
+  'w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-100'
 
-      this.client = clientResponse;
-      this.clientEvents = clientEventsResponse;
-      this.eventsFiltered = nonClientEventsResponse;
+const addressFields = [
+  { key: 'line1', label: 'Address Line 1' },
+  { key: 'line2', label: 'Address Line 2' },
+  { key: 'city', label: 'City', required: true },
+  { key: 'county', label: 'County' },
+  { key: 'zip', label: 'Zip Code' }
+]
 
-    } catch (error) {
-      toast.error('error loading data:', error)
-    }
-  },
-  methods: {
-    // method called to format the event date
-    formatDate(date) {
-      const isoDate = new Date(date);
-      const year = isoDate.getUTCFullYear();
-      const month = String(isoDate.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(isoDate.getUTCDate()).padStart(2, '0');
-      return `${month}/${day}/${year}`;
-    },
-    //custom label for multiselect
-    nameWithDate({ name, date }) {
-      return `${name} (${this.formatDate(date)})`
-    },
+const client = reactive({
+  firstName: '',
+  middleName: '',
+  lastName: '',
+  email: '',
+  phoneNumber: { primary: '', alternate: '' },
+  address: { line1: '', line2: '', city: '', county: '', zip: '' }
+})
+const clientEvents = ref([])
+const eventsNotRegistered = ref([])
+const eventsSelected = ref([])
 
-    // method called to remove client from event
-    async removeClientFromEvent(clientId, eventId) {
-      // remove client ID from the "attendees" array for that event
-      try {
-        const response = await deregisterAttendee(eventId, clientId);
-        toast.success(response)
-      } catch (error) {
-        toast.error(error);
-      }
-      // update events for which client is registered, and events for which client is not registered
-      try {
-        this.clientEvents = await getClientEvents(this.$route.params.id);
-        this.eventsFiltered = await getNonClientEvents(this.$route.params.id);
-      } catch (error) {
-        toast.error(error);
-      }
-    },
+const rules = {
+  client: {
+    firstName: { required },
+    lastName: { required },
+    email: { required, email },
+    phoneNumber: { primary: { required, numeric, minLength: minLength(10), maxLength: maxLength(10) } },
+    address: { city: { required } }
+  }
+}
+const v$ = useVuelidate(rules, { client })
 
-    // method called to add client to an event
-    async addClientToEvent() {
-      try {
-        const client = this.client._id;
-        const events = this.eventsSelected.map((event) => event._id);
-        const promises = [];
+const phoneError = computed(() => {
+  const p = v$.value.client.phoneNumber.primary
+  if (p.required.$invalid) return 'Phone Number is required'
+  if (p.numeric.$invalid) return 'Phone Number must contain only digits'
+  return 'Phone Number must be exactly 10 digits'
+})
 
-        for (const eventId of events) {
-          promises.push(registerAttendee(eventId, client));
-        }
+const clientId = computed(() => route.params.id)
 
-        Promise.all(promises)
-          .then(async () => {
-            try {
-              this.clientEvents = await getClientEvents(this.$route.params.id);
-              this.eventsFiltered = await getNonClientEvents(this.$route.params.id);
-              this.eventsSelected = [];
-            } catch (error) {
-              toast.error(error);
-            }
-          })
-          .catch((error) => {
-            toast.error(error);
-          });
-      } catch (error) {
-        toast.error(error);
-      }
+// ---- load ----
+const { loading, error, execute } = useApi((id) =>
+  Promise.all([getClientById(id), getClientEvents(id), getNonClientEvents(id)])
+)
 
-    },
+async function load() {
+  const result = await execute(clientId.value)
+  if (!result) return
+  const [clientData, registered, notRegistered] = result
+  Object.assign(client, {
+    firstName: clientData.firstName || '',
+    middleName: clientData.middleName || '',
+    lastName: clientData.lastName || '',
+    email: clientData.email || '',
+    phoneNumber: { primary: '', alternate: '', ...(clientData.phoneNumber || {}) },
+    address: { line1: '', line2: '', city: '', county: '', zip: '', ...(clientData.address || {}) }
+  })
+  clientEvents.value = registered
+  eventsNotRegistered.value = notRegistered
+  v$.value.$reset()
+}
+watch(clientId, (id) => id && load(), { immediate: true })
 
-    // update client information
-    async submitUpdateClient() {
-      // Trigger validation
-      this.v$.$validate();
+// refresh only the two event lists (after register / deregister)
+async function refreshEvents() {
+  try {
+    const [registered, notRegistered] = await Promise.all([
+      getClientEvents(clientId.value),
+      getNonClientEvents(clientId.value)
+    ])
+    clientEvents.value = registered
+    eventsNotRegistered.value = notRegistered
+  } catch (err) {
+    toast.error(err.message)
+  }
+}
 
-      if (this.v$.$error) {
-        // Form is invalid, do not proceed
-        return;
-      }
+const eventColumns = [
+  { label: 'Event Name', field: 'name' },
+  { label: 'Date', field: 'date', render: (e) => formatDate(e.date), sortValue: (e) => new Date(e.date).getTime() },
+  { label: '', field: 'actions', sortable: false, render: () => '' }
+]
+const nameWithDate = ({ name, date }) => `${name} (${formatDate(date)})`
 
-      try {
-        const response = await updateClient(this.$route.params.id, this.client);
-        this.$router.push('/findclient')
-        toast.success(response)
-      } catch (error) {
-        toast.error(error)
-      }
-    },
+// API may answer with a plain string or { message } (B1 contract)
+const messageOf = (res, fallback) => (typeof res === 'string' ? res : res?.message) || fallback
 
-    // method called when user attempts to delete client
-    async submitDeleteClient() {
-      try {
-        const response = await deleteClientbyId(this.$route.params.id);
-        toast.success(response)
-        this.$router.push('/findclient')
-      } catch (error) {
-        toast.error(error);
-      }
-    },
+// ---- register / deregister (B1) ----
+const registering = ref(false)
+async function addToEvents() {
+  registering.value = true
+  const results = await Promise.allSettled(
+    eventsSelected.value.map((event) => registerAttendee(event._id, clientId.value))
+  )
+  registering.value = false
+
+  results.forEach((r, i) => {
+    const name = eventsSelected.value[i].name
+    if (r.status === 'rejected') toast.error(`${name}: ${r.reason.message}`)
+    else if (messageOf(r.value) === 'Already registered') toast.info(`${name}: Already registered`)
+    else toast.success(`${name}: ${messageOf(r.value, 'Client added to event')}`)
+  })
+  eventsSelected.value = []
+  await refreshEvents()
+}
+
+async function removeFromEvent(event) {
+  try {
+    const res = await deregisterAttendee(event._id, clientId.value)
+    const message = messageOf(res, 'Client removed from event')
+    if (message === 'Not registered') toast.info(`${event.name}: Not registered`)
+    else toast.success(`${event.name}: ${message}`)
+  } catch (err) {
+    toast.error(err.message)
+  }
+  await refreshEvents()
+}
+
+// ---- update ----
+const saving = ref(false)
+async function submitUpdate() {
+  if (!(await v$.value.$validate())) return
+  saving.value = true
+  try {
+    const message = await updateClient(clientId.value, client)
+    toast.success(messageOf(message, 'Client updated'))
+    router.push('/findclient')
+  } catch (err) {
+    toast.error(err.message)
+  } finally {
+    saving.value = false
+  }
+}
+
+// ---- delete (with confirmation) ----
+const confirmOpen = ref(false)
+const deleting = ref(false)
+function askDelete() {
+  if (clientEvents.value.length) {
+    toast.info('Remove this client from all events before deleting.')
+    return
+  }
+  confirmOpen.value = true
+}
+async function submitDelete() {
+  deleting.value = true
+  try {
+    const message = await deleteClientbyId(clientId.value)
+    confirmOpen.value = false
+    toast.success(messageOf(message, 'Client deleted'))
+    router.push('/findclient')
+  } catch (err) {
+    toast.error(err.message)
+  } finally {
+    deleting.value = false
   }
 }
 </script>
-
-<!--Style for multiselect-->
-<style src="vue-multiselect/dist/vue-multiselect.css"></style>
-
-<style scoped>
-.remove-btn-wrapper {
-  display: inline-block;
-  position: relative;
-}
-
-.remove-btn:hover {
-  color: black;
-}
-</style>
