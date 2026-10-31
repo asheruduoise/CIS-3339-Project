@@ -1,172 +1,112 @@
-<!-- This view allows a user to create client information. -->
+<!-- Client intake form (editor only - guarded by the router). -->
 <template>
   <main>
-    <!--Header-->
-    <h1 class="font-bold text-4xl text-red-700 tracking-widest text-center mt-10">
-      Client Intake Form
-    </h1>
-    <div class="px-10 py-20">
-      <!-- form field -->
-      <!-- @submit.prevent stops the submit event from reloading the page-->
-      <form @submit.prevent="submitForm">
-        <!-- grid container -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
+    <h1 class="mt-10 text-center text-4xl font-bold tracking-widest text-red-700">Client Intake Form</h1>
+    <div class="px-4 py-10 md:px-10 md:py-20">
+      <form novalidate @submit.prevent="submitForm">
+        <div class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 md:grid-cols-4">
           <h2 class="text-2xl font-bold">Personal Details</h2>
-          <!--First Name Input Field-->
+
           <div class="flex flex-col">
             <label class="block">
               <span class="text-gray-700">First Name</span>
-              <span style="color: #ff0000">*</span>
-              <input type="text"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                v-model="client.firstName" />
+              <span class="text-red-600" aria-hidden="true">*</span>
+              <input v-model.trim="client.firstName" type="text" :class="inputClass" required />
             </label>
-            <!-- Validation error messages -->
-            <span v-if="v$.client.firstName.$error" class="text-red-500">
-              First Name is required
-            </span>
+            <span v-if="v$.client.firstName.$error" class="text-red-600">First Name is required</span>
           </div>
 
-          <!--Middle Name Input Field-->
           <div class="flex flex-col">
             <label class="block">
               <span class="text-gray-700">Middle Name</span>
-              <input type="text"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                placeholder v-model="client.middleName" />
+              <input v-model.trim="client.middleName" type="text" :class="inputClass" />
             </label>
           </div>
 
-          <!--Last Name Input Field-->
           <div class="flex flex-col">
             <label class="block">
               <span class="text-gray-700">Last Name</span>
-              <span style="color: #ff0000">*</span>
-              <input type="text"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                placeholder v-model="client.lastName" />
+              <span class="text-red-600" aria-hidden="true">*</span>
+              <input v-model.trim="client.lastName" type="text" :class="inputClass" required />
             </label>
-            <!-- Validation error messages -->
-            <span v-if="v$.client.lastName.$error" class="text-red-500">
-              Last Name is required
-            </span>
+            <span v-if="v$.client.lastName.$error" class="text-red-600">Last Name is required</span>
           </div>
 
           <div></div>
-          <!--Email Input Field-->
+
           <div class="flex flex-col">
             <label class="block">
               <span class="text-gray-700">Email</span>
-              <span style="color: #ff0000">*</span>
-              <input type="email"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                v-model="client.email" />
+              <span class="text-red-600" aria-hidden="true">*</span>
+              <input v-model.trim="client.email" type="email" :class="inputClass" required />
             </label>
-            <!-- Validation error messages -->
-            <span v-if="v$.client.email.$error" class="text-red-500">
-              Valid Email is required
-            </span>
+            <span v-if="v$.client.email.$error" class="text-red-600">Valid Email is required</span>
           </div>
-          <!-- Phone Number Input Field -->
+
           <div class="flex flex-col">
             <label class="block">
               <span class="text-gray-700">Phone Number</span>
-              <span style="color: #ff0000">*</span>
-              <input type="text"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                pattern="[0-9]{3}[0-9]{3}[0-9]{4}" v-model="client.phoneNumber.primary" />
+              <span class="text-red-600" aria-hidden="true">*</span>
+              <input v-model.trim="client.phoneNumber.primary" type="tel" inputmode="numeric" :class="inputClass" required />
             </label>
-            <!-- Validation error messages -->
-            <span v-if="v$.client.phoneNumber.primary.$error" class="text-red-500">
-              <span v-if="v$.client.phoneNumber.primary.required.$invalid">
-                Phone Number is required
-              </span>
-              <span
-                v-else-if="!v$.client.phoneNumber.primary.required.$invalid && v$.client.phoneNumber.primary.numeric.$invalid">
-                Phone Number must contain only digits
-              </span>
-              <span
-                v-else-if="!v$.client.phoneNumber.primary.required.$invalid && !v$.client.phoneNumber.primary.numeric.$invalid && (v$.client.phoneNumber.primary.minLength.$invalid || v$.client.phoneNumber.primary.maxLength.$invalid)">
-                Phone Number must be exactly 10 digits
-              </span>
-            </span>
+            <span v-if="v$.client.phoneNumber.primary.$error" class="text-red-600">{{ phoneError }}</span>
           </div>
 
-          <!-- Alternative Phone Number Input Field -->
           <div class="flex flex-col">
             <label class="block">
               <span class="text-gray-700">Alternative Phone Number</span>
-              <input type="text"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                pattern="[0-9]{3}[0-9]{3}[0-9]{4}" v-model="client.phoneNumber.alternate" />
+              <input v-model.trim="client.phoneNumber.alternate" type="tel" inputmode="numeric" :class="inputClass" />
             </label>
           </div>
         </div>
 
-        <!-- grid container -->
-        <div class="mt-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
+        <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 md:grid-cols-4">
           <h2 class="text-2xl font-bold">Address Details</h2>
-          <!-- Address 1 Input Field -->
+
           <div class="flex flex-col">
             <label class="block">
               <span class="text-gray-700">Address Line 1</span>
-              <input type="text"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                v-model="client.address.line1" />
+              <input v-model.trim="client.address.line1" type="text" :class="inputClass" />
             </label>
           </div>
 
-          <!-- Address 2 Input Field -->
           <div class="flex flex-col">
             <label class="block">
               <span class="text-gray-700">Address Line 2</span>
-              <input type="text"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                v-model="client.address.line2" />
+              <input v-model.trim="client.address.line2" type="text" :class="inputClass" />
             </label>
           </div>
 
-          <!-- City Input Field -->
           <div class="flex flex-col">
             <label class="block">
               <span class="text-gray-700">City</span>
-              <span style="color: #ff0000">*</span>
-              <input type="text"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                v-model="client.address.city" />
+              <span class="text-red-600" aria-hidden="true">*</span>
+              <input v-model.trim="client.address.city" type="text" :class="inputClass" required />
             </label>
-            <!-- Validation error messages -->
-            <span v-if="v$.client.address.city.$error" class="text-red-500">
-              City is required
-            </span>
+            <span v-if="v$.client.address.city.$error" class="text-red-600">City is required</span>
           </div>
+
           <div></div>
 
-          <!-- County Input Field -->
           <div class="flex flex-col">
             <label class="block">
               <span class="text-gray-700">County</span>
-              <input type="text"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                v-model="client.address.county" />
+              <input v-model.trim="client.address.county" type="text" :class="inputClass" />
             </label>
           </div>
 
-          <!-- Zip Code Input Field -->
           <div class="flex flex-col">
             <label class="block">
               <span class="text-gray-700">Zip Code</span>
-              <input type="text"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                v-model="client.address.zip" />
+              <input v-model.trim="client.address.zip" type="text" inputmode="numeric" :class="inputClass" />
             </label>
           </div>
+
           <div></div>
 
-          <!-- Add Client Submit Button -->
-          <div class="flex justify-between mt-10 mr-20">
-            <button class="bg-red-700 text-white rounded" type="submit">
-              Add Client
+          <div class="mt-10 flex">
+            <button class="rounded bg-red-700 text-white disabled:opacity-50" type="submit" :disabled="saving">
+              {{ saving ? 'Saving…' : 'Add Client' }}
             </button>
           </div>
         </div>
@@ -175,86 +115,71 @@
   </main>
 </template>
 
-<script>
-//import functionalities for validation
+<script setup>
+// ---- Composition API migration (F1): what changed from the Options API ----
+// - data() { client } -> reactive({...}) (nested object, so reactive instead of ref)
+// - validations() option + useVuelidate() -> useVuelidate(rules, { client })
+// - methods.submitForm -> plain async function; this.v$ / this.$router -> v$.value / useRouter()
+// - phone error v-else-if chain moved into a computed (phoneError)
+// ---------------------------------------------------------------------------
+import { computed, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import useVuelidate from '@vuelidate/core'
 import { required, email, numeric, minLength, maxLength } from '@vuelidate/validators'
-import { createClient } from '../api/api'
 import { useToast } from 'vue-toastification'
+import { createClient } from '../api/api'
 
-//Notifications
+const router = useRouter()
 const toast = useToast()
 
-export default {
-  data() {
-    return {
-      //client variable to hold new client information
-      client: {
-        firstName: null,
-        middleName: null,
-        lastName: null,
-        email: null,
-        phoneNumber: {
-          primary: null,
-          alternate: null
-        },
-        address: {
-          line1: null,
-          line2: null,
-          city: null,
-          county: null,
-          zip: null
-        },
-      }
-    }
-  },
-  setup() {
-    // Register Vuelidate
-    const v$ = useVuelidate();
-    return { v$ };
-  },
-  validations() {
-    // validations for client
-    return {
-      client: {
-        firstName: { required },
-        lastName: { required },
-        email: { required, email },
-        phoneNumber: {
-          primary: {
-            required,
-            numeric,
-            minLength: minLength(10),
-            maxLength: maxLength(10),
-          },
-        },
-        address: {
-          city: { required },
-        },
-      },
-    };
-  },
-  methods: {
-    // method called when user submits the form
-    async submitForm() {
-      // Trigger validation
-      this.v$.$validate();
+const inputClass =
+  'w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'
 
-      if (this.v$.$error) {
-        // Form is invalid, do not proceed
-        return;
-      }
+const client = reactive({
+  firstName: '',
+  middleName: '',
+  lastName: '',
+  email: '',
+  phoneNumber: { primary: '', alternate: '' },
+  address: { line1: '', line2: '', city: '', county: '', zip: '' }
+})
 
-      try {
-        const response = await createClient(this.client);
-        this.$router.push('/findclient')
-        toast.success(response)
-      } catch (error) {
-        toast.error(error)
-      }
+const rules = {
+  client: {
+    firstName: { required },
+    lastName: { required },
+    email: { required, email },
+    phoneNumber: {
+      primary: { required, numeric, minLength: minLength(10), maxLength: maxLength(10) }
     },
+    address: { city: { required } }
+  }
+}
+const v$ = useVuelidate(rules, { client })
+
+const phoneError = computed(() => {
+  const p = v$.value.client.phoneNumber.primary
+  if (p.required.$invalid) return 'Phone Number is required'
+  if (p.numeric.$invalid) return 'Phone Number must contain only digits'
+  return 'Phone Number must be exactly 10 digits'
+})
+
+const saving = ref(false)
+
+async function submitForm() {
+  const valid = await v$.value.$validate()
+  if (!valid) return
+
+  saving.value = true
+  try {
+    const message = await createClient(client)
+    toast.success(message || 'Client created')
+    router.push('/findclient')
+  } catch (err) {
+    // err.message is already readable (set by the API interceptor)
+    toast.error(err.message)
+  } finally {
+    saving.value = false
   }
 }
 </script>
-
-
