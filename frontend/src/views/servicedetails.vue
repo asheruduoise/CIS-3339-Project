@@ -1,219 +1,199 @@
-<!-- This view allows a user to update a specific service's information. -->
+<!-- Service details: view/update/delete a service and see the events that use it.
+     Viewers see a read-only page. -->
 <template>
   <main>
-    <!--Header-->
-    <h1 class="font-bold text-4xl text-red-700 tracking-widest text-center mt-10">
-      Service Details
-    </h1>
-    <div class="px-10 py-20">
-        <!-- grid container -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
-          <h2 class="text-2xl font-bold">Service Details</h2>
-          <!-- Service Name input field -->
-          <div class="flex flex-col">
-            <label class="block">
-              <span class="text-gray-700">Service Name</span>
-              <span style="color: #ff0000">*</span>
-              <input type="text"
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                v-model="service.name" />
-            </label>
-            <span v-if="v$.service.name.$error" class="text-red-500">
-              Service Name is required
-            </span>
-          </div>
+    <h1 class="mt-10 text-center text-4xl font-bold tracking-widest text-red-700">Service Details</h1>
 
-          <!-- Description input field -->
-          <div class="flex flex-col">
-            <label>
-              <span class="text-gray-700">Description:</span>
-              <textarea
-                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                v-model="service.description"></textarea>
-            </label>
-          </div>
-        </div>
+    <div class="px-4 py-10 md:px-10">
+      <AsyncState
+        :loading="loading"
+        :error="error"
+        loading-text="Loading service…"
+        error-title="Couldn't load this service"
+        @retry="load"
+      >
+        <p v-if="!user.isEditor" class="mb-6 rounded bg-yellow-50 p-3 text-yellow-900">
+          You have view-only access. Only editors can change or delete services.
+        </p>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
-          <div></div>
-          <!-- form field: update service description -->
-          <div class="flex flex-col">
-            <label class="block">
-              <span class="text-gray-700">Service Status</span>
-              <span style="color: #ff0000">*</span>
-              <div class="mt-1">
-                <label class="inline-flex items-center">
-                  <input type="radio" class="form-radio" value="Active" v-model="service.status">
-                  <span class="ml-2">Active</span>
+        <form novalidate @submit.prevent="submitUpdate">
+          <fieldset :disabled="!user.isEditor">
+            <legend class="sr-only">Service information</legend>
+            <div class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 md:grid-cols-4">
+              <h2 class="text-2xl font-bold">Service Details</h2>
+
+              <div class="flex flex-col">
+                <label class="block">
+                  <span class="text-gray-700">Service Name</span>
+                  <span class="text-red-600" aria-hidden="true">*</span>
+                  <input v-model.trim="service.name" type="text" :class="inputClass" required />
                 </label>
-                <label class="inline-flex items-center ml-6">
-                  <input type="radio" class="form-radio" value="Inactive" v-model="service.status">
-                  <span class="ml-2">Inactive</span>
+                <span v-if="v$.service.name.$error" class="text-red-600">Service Name is required</span>
+              </div>
+
+              <div class="flex flex-col">
+                <label class="block">
+                  <span class="text-gray-700">Description</span>
+                  <textarea v-model="service.description" :class="inputClass"></textarea>
                 </label>
               </div>
-            </label>
-          </div>
-        </div>
 
-        <!-- grid container -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
-          <div></div>
-          <!-- Update Service button -->
-          <div class="flex justify-between mt-10 mr-20">
-            <div class="flex justify-between mt-10 mr-25">
-              <button @click="submitServiceUpdate" type="submit" class="bg-green-700 disabled:opacity-50 text-white rounded"
-                :disabled="user.role === 'viewer'">
-                Update Service
-              </button>
+              <fieldset class="flex flex-col">
+                <legend class="text-gray-700">Service Status</legend>
+                <div class="mt-1">
+                  <label class="inline-flex items-center">
+                    <input v-model="service.status" type="radio" class="form-radio" value="Active" />
+                    <span class="ml-2">Active</span>
+                  </label>
+                  <label class="ml-6 inline-flex items-center">
+                    <input v-model="service.status" type="radio" class="form-radio" value="Inactive" />
+                    <span class="ml-2">Inactive</span>
+                  </label>
+                </div>
+              </fieldset>
             </div>
-          </div>
-          <!--Delete Service button-->
-          <div class="flex justify-between mt-20 mr-20">
-            <button @click="submitDeleteService" type="submit" class="bg-red-700 disabled:opacity-50 text-white rounded"
-              :disabled="user.role === 'viewer'">
-              Delete Service
-            </button>
-          </div>
-          <!--Go back button-->
-          <div class="flex justify-between mt-20 mr-20">
-            <button type="reset" class="border border-red-700 bg-white text-red-700 rounded" @click="this.$router.back()">
+          </fieldset>
+
+          <div class="mt-10 flex flex-wrap gap-4">
+            <template v-if="user.isEditor">
+              <button type="submit" class="rounded bg-green-700 text-white disabled:opacity-50" :disabled="saving">
+                {{ saving ? 'Saving…' : 'Update Service' }}
+              </button>
+              <button type="button" class="rounded bg-red-700 text-white" @click="askDelete">Delete Service</button>
+            </template>
+            <button type="button" class="rounded border border-red-700 bg-white text-red-700" @click="router.back()">
               Go back
             </button>
           </div>
-        </div>
+        </form>
+
+        <hr class="my-10" />
+
+        <section class="grid grid-cols-1 gap-x-6 gap-y-6 md:grid-cols-4">
+          <div>
+            <h2 class="text-2xl font-bold">Events Using This Service</h2>
+            <p class="italic">Click a row (or press Enter) to view event details</p>
+          </div>
+          <div class="md:col-span-3">
+            <DataTable
+              :columns="eventColumns"
+              :rows="events"
+              clickable
+              caption="Events that offer this service"
+              empty-text="No events offer this service yet."
+              @row-click="(e) => router.push({ name: 'eventdetails', params: { id: e._id } })"
+            />
+          </div>
+        </section>
+      </AsyncState>
     </div>
 
-    <hr class="mt-10 mb-10" />
-    <!-- Display Found Data -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
-      <!--List of Events table-->
-      <div class="ml-10">
-        <h2 class="text-2xl font-bold">List of Events</h2>
-        <h3 class="italic">Click table row to view event details</h3>
-      </div>
-      <div class="flex flex-col col-span-2">
-        <table class="min-w-full shadow-md rounded">
-          <thead class="bg-gray-50 text-xl">
-            <tr>
-              <th class="p-4 text-left">Event Name</th>
-              <th class="p-4 text-left">Event Date</th>
-              <th class="p-4 text-left">Event Address</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-300">
-            <tr @click="$router.push({name: 'eventdetails', params: { id: event._id } })" 
-            v-for="event in events" :key="event._id" class="cursor-pointer"
-              :class="{ 'hoverRow': hoverId === event._id }" @mouseenter="hoverId = event._id"
-              @mouseleave="hoverId = null">
-              <td class="p-2 text-left">{{ event.name }}</td>
-              <td class="p-2 text-left">{{ formatDate(event.date) }}</td>
-              <td class="p-2 text-left">{{ event.address.line1 }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <ConfirmModal
+      :open="confirmOpen"
+      title="Delete this service?"
+      :message="`“${service.name}” will be permanently deleted.`"
+      confirm-text="Delete Service"
+      :busy="deleting"
+      @confirm="submitDelete"
+      @cancel="confirmOpen = false"
+    />
   </main>
 </template>
 
-<script>
+<script setup>
+// ---- Composition API migration (F1): what changed from the Options API ----
+// - data() { service, events, hoverId } -> reactive(service) + ref(events)
+// - setup() { v$, user } + validations() -> useVuelidate(rules, { service }) and the store at top level
+// - async mounted() + this.$route.params.id -> useApi() + watch(serviceId, load, { immediate: true })
+// - methods.formatDate (copy of 4) -> shared utils/formatDate.js; methods -> functions
+// - events <table> -> DataTable; delete now asks via ConfirmModal
+// ---------------------------------------------------------------------------
+import { computed, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import useVuelidate from '@vuelidate/core'
 import { required } from '@vuelidate/validators'
-import { useLoggedInUserStore } from "../store/loggedInUser";
-import { getServiceById, getEventsByServiceId, updateService, deleteService } from '../api/api'
 import { useToast } from 'vue-toastification'
+import AsyncState from '../components/AsyncState.vue'
+import DataTable from '../components/DataTable.vue'
+import ConfirmModal from '../components/ConfirmModal.vue'
+import { useApi } from '../composables/useApi'
+import { useLoggedInUserStore } from '../store/loggedInUser'
+import { getServiceById, getEventsByServiceId, updateService, deleteService } from '../api/api'
+import { formatDate } from '../utils/formatDate'
 
-//Notifications
+const route = useRoute()
+const router = useRouter()
 const toast = useToast()
+const user = useLoggedInUserStore()
 
-export default {
-  data() {
-    return {
-      //variable to store service information
-      service: {
-        name: null,
-        description: null,
-        status: null
-      },
-      // all events that host the service
-      events: [],
-      // variable stores the ID of the row that the mouse is currently hovering over (to highlight the row red)
-      hoverId: null,
-    }
-  },
-  setup() {
-    // register Vuelidate and loggedIn store
-    const v$ = useVuelidate();
-    const user = useLoggedInUserStore();
-    return { v$, user };
-  },
-  validations() {
-    // validations      
-    return {
-      service: {
-        name: { required },
-      },
-    };
-  },
-  async mounted() {
-    // when component is mounted, data is loaded
-    try {
-      const [serviceResponse, eventsResponse] = await Promise.all([
-        getServiceById(this.$route.params.id),
-        getEventsByServiceId(this.$route.params.id),
-      ]);
+const inputClass =
+  'w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 disabled:bg-gray-100'
 
-      this.service = serviceResponse;
-      this.events = eventsResponse;
+const service = reactive({ name: '', description: '', status: 'Active' })
+const events = ref([])
+const v$ = useVuelidate({ service: { name: { required } } }, { service })
 
-    } catch (error) {
-      toast.error(error);
-    }
-  },
-  methods: {
-    // method to format the event dates
-    formatDate(date) {
-      const isoDate = new Date(date);
-      const year = isoDate.getUTCFullYear();
-      const month = String(isoDate.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(isoDate.getUTCDate()).padStart(2, '0');
-      return `${month}/${day}/${year}`;
-    },
+const serviceId = computed(() => route.params.id)
 
-    // method called when user attempts to update the service
-    async submitServiceUpdate() {
-      // Trigger validation
-      this.v$.$validate();
+const { loading, error, execute } = useApi((id) => Promise.all([getServiceById(id), getEventsByServiceId(id)]))
 
-      if (this.v$.$error) {
-        // Form is invalid, do not proceed
-        return;
-      }
+async function load() {
+  const result = await execute(serviceId.value)
+  if (!result) return
+  const [serviceData, eventData] = result
+  Object.assign(service, {
+    name: serviceData.name || '',
+    description: serviceData.description || '',
+    status: serviceData.status || 'Active'
+  })
+  events.value = eventData
+  v$.value.$reset()
+}
+watch(serviceId, (id) => id && load(), { immediate: true })
 
-      try {
-        const response = await updateService(this.$route.params.id, this.service);
-        this.$router.push('/findservice')
-        toast.success(response)
-      } catch (error) {
-        toast.error('error updating service', error)
-      }
-    },
+const eventColumns = [
+  { label: 'Event Name', field: 'name' },
+  { label: 'Event Date', field: 'date', render: (e) => formatDate(e.date), sortValue: (e) => new Date(e.date).getTime() },
+  { label: 'Event Address', field: 'address.line1' }
+]
 
-    // method to make the API call to delete the service - can only be deleted service is not used in any event
-    async submitDeleteService() {
-      try {
-        if (this.events.length != 0)
-        {
-          toast.info('Service can not be deleted since it is being used by events.')
-          return
-        }
-        const response = await deleteService(this.$route.params.id);
-        toast.success(response)
-        this.$router.push('/findservice')
-      } catch (error) {
-        toast.error(error)
-      }
-    },
+// ---- update ----
+const saving = ref(false)
+async function submitUpdate() {
+  if (!(await v$.value.$validate())) return
+  saving.value = true
+  try {
+    const message = await updateService(serviceId.value, service)
+    toast.success(message || 'Service updated')
+    router.push('/findservice')
+  } catch (err) {
+    toast.error(err.message)
+  } finally {
+    saving.value = false
+  }
+}
+
+// ---- delete (with confirmation) ----
+const confirmOpen = ref(false)
+const deleting = ref(false)
+function askDelete() {
+  if (events.value.length) {
+    toast.info("This service can't be deleted while events use it.")
+    return
+  }
+  confirmOpen.value = true
+}
+async function submitDelete() {
+  deleting.value = true
+  try {
+    const message = await deleteService(serviceId.value)
+    confirmOpen.value = false
+    toast.success(message || 'Service deleted')
+    router.push('/findservice')
+  } catch (err) {
+    toast.error(err.message)
+  } finally {
+    deleting.value = false
   }
 }
 </script>
