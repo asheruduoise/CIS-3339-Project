@@ -1,161 +1,112 @@
-<!-- This view shows a list of services. Users can search for services and click on a service to be redirected to another component that displays the service's details -->
+<!-- Find Services: search services and open one. Uses useApi (F2) + DataTable (F3). -->
 <template>
   <main>
-    <div>
-      <!--Header-->
-      <h1 class="font-bold text-4xl text-red-700 tracking-widest text-center mt-10">
-        Find Services
-      </h1>
-    </div>
-    <div class="px-10 pt-20">
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
+    <h1 class="mt-10 text-center text-4xl font-bold tracking-widest text-red-700">Find Services</h1>
+
+    <form class="px-4 pt-10 md:px-10 md:pt-20" @submit.prevent="search">
+      <div class="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2 md:grid-cols-4">
         <h2 class="text-2xl font-bold">Search Service By</h2>
-        <!-- Displays Service Name and Description selection -->
         <div class="flex flex-col">
-          <select
-            class="rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-            v-model="searchBy">
-            <option value="Service Name">Service Name</option>
-            <option value="Service Description">Service Description</option>
+          <label for="service-search-by" class="sr-only">Search service by</label>
+          <select id="service-search-by" v-model="searchBy" :class="inputClass">
+            <option value="name">Service Name</option>
+            <option value="description">Service Description</option>
           </select>
         </div>
-        <!--Display service name search field-->
-        <div class="flex flex-col" v-if="searchBy === 'Service Name'">
-          <label class="block">
-            <input type="text"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              v-model="name" v-on:keyup.enter="handleSubmitForm" placeholder="Enter service name" />
-          </label>
-        </div>
-        <!--Display service description search field-->
-        <div class="flex flex-col" v-if="searchBy === 'Service Description'">
-          <label class="block">
-            <input type="text"
-              class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              v-model="description" v-on:keyup.enter="handleSubmitForm" placeholder="Enter service description" />
-          </label>
+        <div class="flex flex-col">
+          <label for="service-term" class="sr-only">Search term</label>
+          <input
+            id="service-term"
+            v-model.trim="term"
+            type="text"
+            :class="inputClass"
+            :placeholder="searchBy === 'name' ? 'Enter service name' : 'Enter service description'"
+          />
         </div>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
-        <div></div>
-        <div></div>
-        <div class="mt-5 grid-cols-2">
-          <!--Clear Search button-->
-          <button class="mr-10 border border-red-700 bg-white text-red-700 rounded" @click="loadData" type="submit">
-            Clear Search
-          </button>
-          <!--Search Service button-->
-          <button class="bg-red-700 text-white rounded" @click="handleSubmitForm" type="submit">
-            Search Service
-          </button>
-        </div>
+      <div class="mt-5 flex justify-end gap-4 md:justify-center">
+        <button class="rounded border border-red-700 bg-white text-red-700" type="button" @click="clearSearch">
+          Clear Search
+        </button>
+        <button class="rounded bg-red-700 text-white" type="submit">Search Service</button>
       </div>
-    </div>
+    </form>
 
-    <hr class="mt-10 mb-10" />
-    <!-- Display Found Data -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
-      <!--List of Services table-->
-      <div class="ml-10">
+    <hr class="my-10" />
+
+    <section class="grid grid-cols-1 gap-x-6 gap-y-6 px-4 pb-16 md:grid-cols-4 md:px-10">
+      <div>
         <h2 class="text-2xl font-bold">List of Services</h2>
-        <h3 class="italic">Click table row to view service details</h3>
+        <p class="italic">Click a row (or Tab to it and press Enter) to view service details</p>
       </div>
-      <div class="flex flex-col col-span-2">
-        <table class="min-w-full shadow-md rounded">
-          <thead class="bg-gray-50 text-xl">
-            <tr>
-              <th class="p-4 text-left" style="width: 25%;">Service Name</th>
-              <th class="p-4 text-left" style="width: 75%;">Service Description</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-300">
-            <tr @click="$router.push({name: 'servicedetails', params: { id: service._id } })" 
-            v-for="service in services" :key="service._id" class="cursor-pointer"
-              :class="{ 'hoverRow': hoverId === service._id }" @mouseenter="hoverId = service._id"
-              @mouseleave="hoverId = null">
-              <td class="p-4 text-left">{{ service.name }}</td>
-              <td class="p-4 text-left text-sm">{{ service.description }}</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="md:col-span-3">
+        <AsyncState
+          :loading="loading"
+          :error="error"
+          loading-text="Loading services…"
+          error-title="Couldn't load services"
+          @retry="execute()"
+        >
+          <DataTable
+            :columns="columns"
+            :rows="data || []"
+            clickable
+            caption="Services"
+            :empty-text="activeQuery ? 'No services match your search.' : 'No services yet.'"
+            @row-click="openService"
+          />
+        </AsyncState>
       </div>
-    </div>
+    </section>
   </main>
 </template>
 
-<script>
+<script setup>
+// ---- Composition API migration (F1): what changed from the Options API ----
+// - data() { services, searchBy, name, description, hoverId } -> ref() per field; services -> useApi().data
+// - mounted() -> execute() during setup; methods -> plain functions
+// - per-call try/catch + toast -> removed (useApi + interceptor); hand-built table -> DataTable
+// ---------------------------------------------------------------------------
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import AsyncState from '../components/AsyncState.vue'
+import DataTable from '../components/DataTable.vue'
+import { useApi } from '../composables/useApi'
 import { getServices, searchServices } from '../api/api'
-import { useToast } from 'vue-toastification'
 
-//Notifications
-const toast = useToast()
+const router = useRouter()
+const inputClass =
+  'w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50'
 
-export default {
-  data() {
-    return {
-      //variable to hold the services for the organization
-      services: null,
-      // Parameters for search to occur
-      searchBy: null,
-      name: null,
-      description: null,
-      // variable stores the ID of the row that the mouse is currently hovering over (to highlight the row red)
-      hoverId: null,
-    }
-  },
-  mounted() {
-    // when component is mounted, load the data
-    this.loadData();
-  },
-  methods: {
-    // method called when component is mounted
-    async loadData() {
-      // Resets all the variables
-      this.searchBy = ''
-      this.name = ''
-      this.description = ''
+const searchBy = ref('name')
+const term = ref('')
+const activeQuery = ref(null)
 
-      // get list of services
-      try {
-        const response = await getServices();
-        this.services = response;
-      } catch (error) {
-        toast.error(error)
-      }
-    },
+const { data, loading, error, execute } = useApi(() =>
+  activeQuery.value ? searchServices(activeQuery.value) : getServices()
+)
 
-    // method called when user searches for a service
-    async handleSubmitForm() {
-      // if user searches by service name
-      if (this.searchBy === 'Service Name') {
-        if (this.name) {
-          try {
-            const query = {
-              searchBy: 'name',
-              name: this.name
-            }
-            const response = await searchServices(query)
-            this.services = response;
-          } catch (error) {
-            toast.error(error)
-          }
-        }
-        // if user searches by service description
-      } else if (this.searchBy === 'Service Description') {
-        if (this.description) {
-          try {
-            const query = {
-              searchBy: 'description',
-              description: this.description
-            }
-            const response = await searchServices(query)
-            this.services = response;
-          } catch (error) {
-            toast.error('Error searching services:', error)
-          }
-        }
-      }
-    },
-  },
+const columns = [
+  { label: 'Service Name', field: 'name' },
+  { label: 'Status', field: 'status' },
+  { label: 'Service Description', field: 'description' }
+]
+
+function search() {
+  if (!term.value) return clearSearch()
+  activeQuery.value = { searchBy: searchBy.value, [searchBy.value]: term.value }
+  execute()
 }
+
+function clearSearch() {
+  term.value = ''
+  activeQuery.value = null
+  execute()
+}
+
+function openService(service) {
+  router.push({ name: 'servicedetails', params: { id: service._id } })
+}
+
+execute()
 </script>
