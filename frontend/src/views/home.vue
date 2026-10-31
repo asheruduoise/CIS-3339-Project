@@ -1,232 +1,116 @@
-<!-- This is the home view - which shows a dashboard -->
+<!-- Dashboard: recent event attendance and clients by zip code.
+     Each section uses useApi() (F2) and only draws its chart after its data
+     has loaded (U4 - fixes the render race). -->
 <template>
-  <main>
-    <div>
-      <h1 class="font-bold text-4xl text-red-700 tracking-widest text-center mt-10">
-        Dashboard
-      </h1>
-      <br />
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
-        <div class="ml-10"></div>
-        <div class="flex flex-col col-span-2">
-          <h1 class="font-bold text-4xl text-red-700 tracking-widest text-center mt-10">
-              Events Attendance
-          </h1>
-      
-          <div v-if="!recentEvents.length" class="flex justify-center mt-10">No events found.</div>
-          <table v-if="recentEvents.length" class="min-w-full shadow-md rounded">
+  <main class="px-4 pb-16 md:px-10">
+    <h1 class="mt-10 text-center text-4xl font-bold tracking-widest text-red-700">Dashboard</h1>
+
+    <section class="mx-auto mt-10 max-w-4xl" aria-labelledby="attendance-heading">
+      <h2 id="attendance-heading" class="mb-6 text-center text-3xl font-bold text-red-700">
+        Events Attendance
+      </h2>
+      <AsyncState
+        :loading="attendance.loading.value"
+        :error="attendance.error.value"
+        :empty="!recentEvents.length"
+        loading-text="Loading recent attendance…"
+        error-title="Couldn't load attendance"
+        empty-text="No events in the last two months."
+        @retry="attendance.execute()"
+      >
+        <div class="overflow-x-auto">
+          <table class="min-w-full rounded shadow-md">
             <thead class="bg-gray-50 text-xl">
-              <tr class="p-4 text-left">
-                <th class="p-4 text-left">Event Name</th>
-                <th class="p-4 text-left">Event Date</th>
-                <th class="p-4 text-left">Number of Attendees</th>
+              <tr>
+                <th scope="col" class="p-4 text-left">Event Name</th>
+                <th scope="col" class="p-4 text-left">Event Date</th>
+                <th scope="col" class="p-4 text-left">Number of Attendees</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-300"> 
-              <tr
-                @click="editEvent(event._id)"
-                v-for="event in recentEvents"
-                :key="event._id"
-              >
-                <td class="p-2 text-left">{{ event.name }}</td>
+            <tbody class="divide-y divide-gray-300">
+              <tr v-for="event in recentEvents" :key="event._id">
+                <td class="p-2 text-left">
+                  <router-link
+                    class="text-red-800 underline hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-400"
+                    :to="{ name: 'eventdetails', params: { id: event._id } }"
+                  >
+                    {{ event.name }}
+                  </router-link>
+                </td>
                 <td class="p-2 text-left">{{ formatDate(event.date) }}</td>
                 <td class="p-2 text-left">{{ event.attendees.length }}</td>
               </tr>
             </tbody>
           </table>
-          
-          <div v-if="recentEvents.length">
-            <AttendanceChart
-              v-if="!loading && !error"
-              :label="labels"
-              :chart-data="chartData"
-            ></AttendanceChart>
-
-            <!-- Start of loading animation -->
-            <div class="mt-40" v-if="loading">
-              <p
-                class="text-6xl font-bold text-center text-gray-500 animate-pulse"
-              >
-                Loading...
-              </p>
-            </div>
-            <!-- End of loading animation -->
-
-            <!-- Start of error alert -->
-            <div class="mt-12 bg-red-50" v-if="error">
-              <h3 class="px-4 py-1 text-4xl font-bold text-white bg-red-800">
-                {{ error.title }}
-              </h3>
-              <p class="p-4 text-lg font-bold text-red-900">
-                {{ error.message }}
-              </p>
-            </div>
-            <!-- End of error alert -->
-          </div>
         </div>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-10">
-        <div class="ml-10"></div>
-        <div class="flex flex-col col-span-2">
-          <h1 class="font-bold text-4xl text-red-700 tracking-widest text-center mt-10">
-              Clients by Zip Code
-          </h1>
-          
-          <div v-if="!zips.length" class="flex justify-center mt-10">No clients found.</div>
-          <table v-if="zips.length" class="min-w-full shadow-md rounded">
+        <AttendanceChart :label="attendanceLabels" :chart-data="attendanceCounts" />
+      </AsyncState>
+    </section>
+
+    <section class="mx-auto mt-16 max-w-4xl" aria-labelledby="zip-heading">
+      <h2 id="zip-heading" class="mb-6 text-center text-3xl font-bold text-red-700">Clients by Zip Code</h2>
+      <AsyncState
+        :loading="zipApi.loading.value"
+        :error="zipApi.error.value"
+        :empty="!zips.length"
+        loading-text="Loading clients by zip code…"
+        error-title="Couldn't load zip code data"
+        empty-text="No clients with a zip code yet."
+        @retry="zipApi.execute()"
+      >
+        <div class="overflow-x-auto">
+          <table class="min-w-full rounded shadow-md">
             <thead class="bg-gray-50 text-xl">
-              <tr class="p-4 text-left">
-                <th class="p-4 text-left">Zip Number</th>
-                <th class="p-4 text-left">Client Count</th>
+              <tr>
+                <th scope="col" class="p-4 text-left">Zip Code</th>
+                <th scope="col" class="p-4 text-left">Client Count</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-300">
-              <tr
-                v-for="zip in zips"
-                :key="zip._id"
-              >
+              <tr v-for="zip in zips" :key="zip._id">
                 <td class="p-2 text-left">{{ zip._id }}</td>
                 <td class="p-2 text-left">{{ zip.count }}</td>
               </tr>
             </tbody>
           </table>
-          <div v-if="zips.length" class="flex justify-center mt-10">
-            <ZipChart
-              v-if="!zipLoading && !zipError"
-              :label="zipLabels"
-              :chart-data="zipChartData"
-            ></ZipChart>
-
-            <!-- Start of loading animation -->
-            <div class="mt-40" v-if="zipLoading">
-              <p
-                class="text-6xl font-bold text-center text-gray-500 animate-pulse"
-              >
-                Loading...
-              </p>
-            </div>
-            <!-- End of loading animation -->
-
-            <!-- Start of error alert -->
-            <div class="mt-12 bg-red-50" v-if="zipError">
-              <h3 class="px-4 py-1 text-4xl font-bold text-white bg-red-800">
-                {{ zipError.title }}
-              </h3>
-              <p class="p-4 text-lg font-bold text-red-900">
-                {{ zipError.message }}
-              </p>
-            </div>
-            <!-- End of error alert -->
-          </div>
         </div>
-      </div>
-    </div>
+        <div class="mt-6 flex justify-center">
+          <ZipChart :label="zipLabels" :chart-data="zipCounts" />
+        </div>
+      </AsyncState>
+    </section>
   </main>
 </template>
 
-<script>
+<script setup>
+// ---- Composition API migration (F1): what changed from the Options API ----
+// - data() { recentEvents, labels, chartData, loading, error, ... } -> two useApi() calls
+// - labels / chartData were filled by hand in methods -> computed() from the API data
+// - mounted() { getAttendanceData(); getZipData() } -> execute() called during setup
+// - methods.formatDate (copy #1 of 4) -> shared utils/formatDate.js
+// - components: {} option -> imports are used directly in <script setup>
+// ---------------------------------------------------------------------------
+import { computed } from 'vue'
 import AttendanceChart from '../components/barChart.vue'
 import ZipChart from '../components/donutZipChart.vue'
+import AsyncState from '../components/AsyncState.vue'
 import { getAttendance, getClientsByZipCode } from '../api/api'
+import { useApi } from '../composables/useApi'
+import { formatDate } from '../utils/formatDate'
 
-export default {
-  components: {
-    AttendanceChart,
-    ZipChart,
-  },
-  data() {
-    return {
-      recentEvents: [],
-      zips: [],
-      labels: [],
-      chartData: [],
-      zipLabels: [],
-      zipChartData: [],
-      loading: false,
-      error: null,
-      zipLoading: false,
-      zipError: null
-    }
-  },
-  mounted() {
-    this.getAttendanceData()
-    this.getZipData()
-  },
-  methods: {
-    async getAttendanceData() {
-      try {
-        this.error = null
-        this.loading = true
-        
-        const attendance = await getAttendance();
-        this.recentEvents = attendance;
-        this.labels = attendance.map(
-          (item) => `${item.name} (${this.formatDate(item.date)})`
-        )
-        this.chartData = attendance.map((item) => item.attendees.length)
-      } catch (err) {
-        if (err.response) {
-          // client received an error response (5xx, 4xx)
-          this.error = {
-            title: 'Server Response',
-            message: err.message
-          }
-        } else if (err.request) {
-          // client never received a response, or request never left
-          this.error = {
-            title: 'Unable to Reach Server',
-            message: err.message
-          }
-        } else {
-          // There's probably an error in your code
-          this.error = {
-            title: 'Application Error',
-            message: err.message
-          }
-        }
-      }
-      this.loading = false
-    },
-    async getZipData() {
-      try {
-        this.zipError = null
-        this.zipLoading = true
-        
-        const zipdata = await getClientsByZipCode();
-        this.zips = zipdata;
-        this.zipLabels = zipdata.map((item) => item._id)
-        this.zipChartData = zipdata.map((item) => item.count)
-      } catch (err) {
-        if (err.response) {
-          // client received an error response (5xx, 4xx)
-          this.zipError = {
-            title: 'Server Response',
-            message: err.message
-          }
-        } else if (err.request) {
-          // client never received a response, or request never left
-          this.zipError = {
-            title: 'Unable to Reach Server',
-            message: err.message
-          }
-        } else {
-          // There's probably an error in your code
-          this.zipError = {
-            title: 'Application Error',
-            message: err.message
-          }
-        }
-      }
-      this.zipLoading = false
-    },
-    // method called to format the event date
-    formatDate(date) {
-      const isoDate = new Date(date);
-      const year = isoDate.getUTCFullYear();
-      const month = String(isoDate.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(isoDate.getUTCDate()).padStart(2, '0');
-      return `${month}/${day}/${year}`;
-    },
-  }
-}
+const attendance = useApi(() => getAttendance())
+const zipApi = useApi(() => getClientsByZipCode())
+
+const recentEvents = computed(() => attendance.data.value || [])
+const attendanceLabels = computed(() => recentEvents.value.map((e) => `${e.name} (${formatDate(e.date)})`))
+const attendanceCounts = computed(() => recentEvents.value.map((e) => e.attendees.length))
+
+const zips = computed(() => zipApi.data.value || [])
+const zipLabels = computed(() => zips.value.map((z) => z._id))
+const zipCounts = computed(() => zips.value.map((z) => z.count))
+
+// start loading right away (during setup) so the first paint shows "Loading…"
+// instead of flashing the empty message
+attendance.execute()
+zipApi.execute()
 </script>
